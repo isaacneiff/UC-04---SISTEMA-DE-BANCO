@@ -76,10 +76,20 @@ async function main() {
         console.log(`${conta.nomeCliente}, o saldo da sua conta é de ${saldo}`);
         break;
       case 2:
-        const valorDepositado = await scanner.questionFloat("Informe o valor")
-        efetuarDeposito(agencia, numeroConta, valorDepositado)
-        break
-
+        const valorDeposito = await scanner.questionFloat(
+          "Informe o valor a ser depositado: "
+        );
+        efetuarDeposito(agencia, numeroConta, valorDeposito);
+        break;
+      case 3:
+        const valorSaque = await scanner.questionFloat(
+          "Informe o valor a ser sacado: "
+        );
+        efetuarSaque(agencia, numeroConta, valorSaque);
+        break;
+      case 4:
+        imprimirExtrato(agencia, numeroConta);
+        break;
       default:
         console.log("Operação inválida");
         break;
@@ -125,23 +135,16 @@ function localizarConta(agencia: number, numeroConta: number) {
   }
 }
 
-function calcularSaldo(agencia: number, numeroConta: number) {
-  // filtrar apenas as transacoes da conta
-  let transacoesConta: Transacao[] = [];
-  // for (let transacao of transacoes) {
-  //   if (
-  //     transacao.agencia === agencia &&
-  //     transacao.numeroConta === numeroConta
-  //   ) {
-  //     transacoesConta.push(transacao);
-  //   }
-  // }
-
-  transacoesConta = transacoes.filter(
+function buscarTransacoesConta(agencia: number, numeroConta: number) {
+  const transacoesConta = transacoes.filter(
     (transacao) =>
       transacao.agencia === agencia && transacao.numeroConta === numeroConta
   );
+  return transacoesConta;
+}
 
+function calcularSaldo(agencia: number, numeroConta: number) {
+  const transacoesConta = buscarTransacoesConta(agencia, numeroConta);
   if (transacoesConta.length === 0) {
     return 0;
   }
@@ -162,27 +165,87 @@ function calcularSaldo(agencia: number, numeroConta: number) {
   return saldo;
 }
 
-function efetuarDeposito (agencia: number, numeroConta: number, valorDepositado: number){
-  //buscar a conta e atualizar o saldo
-  for (let conta of contas){
-    if (conta.agencia === agencia && conta.numero === numeroConta){
-      conta.saldo += valorDepositado
-      break
+function efetuarDeposito(
+  agencia: number,
+  numeroConta: number,
+  valorDeposito: number
+) {
+  // buscar a conta (entidade)
+  // atualizar o saldo na conta (entidade)
+  if (valorDeposito <= 0) {
+    console.log("Valor invalido!")
+    return;
+  }
+  for (let conta of contas) {
+    if (conta.agencia === agencia && conta.numero === numeroConta) {
+      conta.saldo += valorDeposito;
+      break;
     }
   }
-  //cria a transação de entrada
+  // cria uma transacao de entrada
   const transacao: Transacao = {
     id: randomUUID(),
-    valor: valorDepositado,
+    valor: valorDeposito,
     numeroConta: numeroConta,
     agencia: agencia,
     tipo: "C",
-    operacao: "DEP"
+    operacao: "DEP",
+  };
+  transacoes.push(transacao);
+}
+
+function efetuarSaque(
+  agencia: number,
+  numeroConta: number,
+  valorSaque: number,
+) {
+  // validar se a conta possui saldo disponível
+  const saldoConta = calcularSaldo(agencia, numeroConta);
+  if (saldoConta < valorSaque) {
+    console.log(`Saldo insuficiente: R$ ${saldoConta.toFixed(2)}`);
+    return;
+  } else if (valorSaque <= 0) {
+    console.log("Valor invalido!")
+    return;
   }
+  // atualizar o saldo na conta
+  for (let conta of contas) {
+    if (conta.agencia === agencia && conta.numero === numeroConta) {
+      conta.saldo -= valorSaque;
+      break;
+    }
+  }
+  // criar a transação de débito da conta
+  const transacao: Transacao = {
+    id: randomUUID(),
+    valor: valorSaque,
+    numeroConta: numeroConta,
+    agencia: agencia,
+    tipo: "D",
+    operacao: "SAQ",
+  };
+  transacoes.push(transacao);
+}
 
-  transacoes.push(transacao)
-  //
-
+function imprimirExtrato(agencia: number, numeroConta: number) {
+  const transacoesConta = buscarTransacoesConta(agencia, numeroConta);
+  console.log(`Extrato de transações da conta ${agencia}/${numeroConta}`);
+  let saldo = 0;
+  for (const transacao of transacoesConta) {
+    // const valorTransacao =
+    //   transacao.tipo === "C" ? transacao.valor : transacao.valor * -1;
+    let valorTransacao = transacao.valor;
+    if (transacao.tipo === "D") {
+      valorTransacao = transacao.valor * -1;
+    }
+    saldo += valorTransacao;
+    console.log(
+      `${transacao.operacao} -> R$ ${valorTransacao.toFixed(2)} - ${
+        transacao.tipo
+      }`
+    );
+  }
+  console.log(`O saldo da conta é de R$ ${saldo.toFixed(0)}`)
 }
 
 // Executa o programa
